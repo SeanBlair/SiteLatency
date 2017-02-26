@@ -17,11 +17,20 @@ import (
 	"net"
 	"os"
 	"net/rpc"
+	// "strings"
+	"strconv"
 )
 var (
 	workerIncomingIpPort string
 	clientIncomingIpPort string
+	nextWorkerPort int = 3000
+	Workers []Worker
 )
+
+type Worker struct {
+	Ip string
+	Port string
+}
 
 
 // A stats struct that summarizes a set of latency measurements to an
@@ -71,7 +80,8 @@ func main() {
 	}
 	fmt.Println("workerIncomingIpPort:", workerIncomingIpPort, "clientIncomingIpPort:", clientIncomingIpPort)
 
-	listenClient()
+	listen(clientIncomingIpPort)
+	listen(workerIncomingIpPort)
 }
 
 func (p *MServer) MeasureWebsite(mSiteReq MWebsiteReq, mRes *MRes) error {
@@ -79,11 +89,23 @@ func (p *MServer) MeasureWebsite(mSiteReq MWebsiteReq, mRes *MRes) error {
 	return nil
 }
 
-func listenClient() {
+func (p *MServer) GetWorkers(workerReq MWorkersReq, wRes *MRes) error {
+	*wRes = getWorkers(workerReq.SamplesPerWorker)
+	return nil
+}
+
+func (p *MServer) Join(workerIP string, port *int) error {
+	Workers = append(Workers, Worker{workerIP, strconv.Itoa(nextWorkerPort)})
+	nextWorkerPort += 10
+	return nil
+}
+
+
+func listen(ipPort string) {
 	mServer := rpc.NewServer()
 	m := new(MServer)
 	mServer.Register(m)
-	l, err := net.Listen("tcp", clientIncomingIpPort)
+	l, err := net.Listen("tcp", ipPort)
 	if err != nil {
 		panic(err)
 	}
@@ -94,6 +116,16 @@ func listenClient() {
 		}
 		go mServer.ServeConn(conn)
 	}
+}
+
+func getWorkers(samples int) (res MRes) {
+	fmt.Println("GetWorkers called with samples:", samples)
+
+	res = MRes{map[string]LatencyStats{
+		"hardcodedWorkerIp" : LatencyStats{3,2,1},
+		},
+		nil}
+		return
 }
 
 func measureWebsite(mSite MWebsiteReq) (res MRes) {
