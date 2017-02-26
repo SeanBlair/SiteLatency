@@ -11,13 +11,30 @@ import (
 )
 var (
 	outboundIp string
-	portForMServerRPC string
+	portForWorkerRPC string
 	portForGetSite string
 	portForPingServer string
 	serverIpPort string
 )
 
 type MServer int
+
+type WorkerServer int
+
+// A stats struct that summarizes a set of latency measurements to an
+// internet host.
+type LatencyStats struct {
+	Min    int // min measured latency in milliseconds to host
+	Median int // median measured latency in milliseconds to host
+	Max    int // max measured latency in milliseconds to host
+}
+
+
+// Request that client sends in RPC call to MServer.MeasureWebsite
+type MWebsiteReq struct {
+	URI              string // URI of the website to measure
+	SamplesPerWorker int    // Number of samples, >= 1
+}
 
 
 
@@ -35,9 +52,34 @@ func main() {
 
 	join()
 
-	fmt.Println("Successfully joined. Ports: Server:", portForMServerRPC, "PingServer:", portForPingServer, "GetSite:", portForGetSite)
+	fmt.Println("Successfully joined. Ports: Server:", portForWorkerRPC, "PingServer:", portForPingServer, "GetSite:", portForGetSite)
 
 	// TODO listen rpc outboundIp:portForMServerRPC
+	listen(outboundIp + ":" + portForWorkerRPC)
+}
+
+func (p *WorkerServer) PingSite(req MWebsiteReq, resp *LatencyStats) error {
+	fmt.Println("received call to PingSite")
+	// pingSite(req)
+	*resp = LatencyStats{5,5,5}
+	return nil
+}
+
+func listen(ipPort string) {
+	wServer := rpc.NewServer()
+	w := new(WorkerServer)
+	wServer.Register(w)
+	l, err := net.Listen("tcp", ipPort)
+	if err != nil {
+		panic(err)
+	}
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			panic(err)
+		}
+		go wServer.ServeConn(conn)
+	}
 }
 
 func join() {
@@ -49,7 +91,7 @@ func join() {
 	err = client.Close()
 	checkError("client.Close() in join call: ", err, true)
 
-	portForMServerRPC = strconv.Itoa(joinResp)
+	portForWorkerRPC = strconv.Itoa(joinResp)
 	portForPingServer = strconv.Itoa(joinResp + 1)
 	portForGetSite = strconv.Itoa(joinResp + 2)
 }

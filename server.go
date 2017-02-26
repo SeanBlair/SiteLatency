@@ -14,11 +14,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"net/rpc"
 	// "strings"
-	// "strconv"
+	"strconv"
 )
 var (
 	workerIncomingIpPort string
@@ -133,11 +134,37 @@ func getWorkers(samples int) (res MRes) {
 func measureWebsite(mSite MWebsiteReq) (res MRes) {
 	fmt.Println("Website to measure:", mSite.URI, "SamplesPerWorker:", mSite.SamplesPerWorker)
 
-	res = MRes{map[string]LatencyStats{
-		"hardcodedWorkerIp" : LatencyStats{1,2,3},
-		},
-		nil}
-		return
+	res.Stats = make(map[string]LatencyStats)
+	
+
+	for _, worker := range Workers {
+		stats := pingSite(worker, mSite)
+		res.Stats[worker.Ip] = stats
+		res.Diff = nil
+	}
+
+	// res = MRes{map[string]LatencyStats{
+	// 	"hardcodedWorkerIp" : LatencyStats{1,2,3},
+	// 	},
+	// 	nil}
+
+	return
+}
+
+func pingSite(w Worker, req MWebsiteReq) (st LatencyStats) {
+	wIpPort := getWorkerIpPort(w)
+	client, err := rpc.Dial("tcp", wIpPort)
+	checkError("rpc.Dial in pingSite()", err, true)
+	err = client.Call("WorkerServer.PingSite", req, &st)
+	checkError("client.Call(WorkerServer.PingSite: ", err, true)
+	err = client.Close()
+	checkError("client.Close() in pingSite call: ", err, true)
+	return
+}
+
+func getWorkerIpPort(w Worker) (s string) {
+	s = w.Ip + ":" + strconv.Itoa(w.Port)
+	return
 }
 
 func ParseArguments() (err error) {
@@ -150,4 +177,14 @@ func ParseArguments() (err error) {
 			return
 		}
 	return
+}
+
+// Prints msg + err to console and exits program if exit == true
+func checkError(msg string, err error, exit bool) {
+	if err != nil {
+		log.Println(msg, err)
+		if exit {
+			os.Exit(-1)
+		}
+	}
 }
