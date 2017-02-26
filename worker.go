@@ -42,13 +42,12 @@ func main() {
 
 func join() {
 	var joinResp int
-	// joinReq := JoinRequest{myIpPort}
 	client, err := rpc.Dial("tcp", serverIpPort)
-	checkError("rpc.Dial in join()", err, false)
+	checkError("rpc.Dial in join()", err, true)
 	err = client.Call("MServer.Join", outboundIp, &joinResp)
-	checkError("client.Call(MServer.Join: ", err, false)
+	checkError("client.Call(MServer.Join: ", err, true)
 	err = client.Close()
-	checkError("client.Close() in join call: ", err, false)
+	checkError("client.Close() in join call: ", err, true)
 
 	portForMServerRPC = strconv.Itoa(joinResp)
 	portForPingServer = strconv.Itoa(joinResp + 1)

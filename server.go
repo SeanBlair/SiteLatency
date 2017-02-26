@@ -18,7 +18,7 @@ import (
 	"os"
 	"net/rpc"
 	// "strings"
-	"strconv"
+	// "strconv"
 )
 var (
 	workerIncomingIpPort string
@@ -29,7 +29,7 @@ var (
 
 type Worker struct {
 	Ip string
-	Port string
+	Port int
 }
 
 
@@ -80,7 +80,7 @@ func main() {
 	}
 	fmt.Println("workerIncomingIpPort:", workerIncomingIpPort, "clientIncomingIpPort:", clientIncomingIpPort)
 
-	listen(clientIncomingIpPort)
+	go listen(clientIncomingIpPort)
 	listen(workerIncomingIpPort)
 }
 
@@ -95,8 +95,10 @@ func (p *MServer) GetWorkers(workerReq MWorkersReq, wRes *MRes) error {
 }
 
 func (p *MServer) Join(workerIP string, port *int) error {
-	Workers = append(Workers, Worker{workerIP, strconv.Itoa(nextWorkerPort)})
+	*port = nextWorkerPort
+	Workers = append(Workers, Worker{workerIP, nextWorkerPort})
 	nextWorkerPort += 10
+	fmt.Println(Workers)
 	return nil
 }
 
