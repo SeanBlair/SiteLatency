@@ -10,7 +10,11 @@ import (
 	"strings"
 	"strconv"
 	"net/rpc"
+	"io/ioutil"
+	"net/http"
+	"time"
 )
+
 var (
 	portForWorkerRPC string
 	portForGetSite string
@@ -98,13 +102,26 @@ func pingSite(req MWebsiteReq) (stats LatencyStats) {
 	return
 }
 
+
 func pingSiteOnce(uri string) (l int) {
-	// note in milliseconds, need to round
-	// start timer
-	// http.Get(uri)
-	// stop timer
-	// read timer , round to nearest int
-	return 9
+	start := time.Now()
+	res, err := http.Get(uri)
+	elapsed := time.Since(start)
+	// TODO
+	// this is not required except for figuring out diff, only once...
+	checkError("Error in pingSiteOnce(), http.Get():", err, true)
+	html, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	checkError("Error in pingSiteOnce(), ioutil.ReadAll():", err, true)
+	fmt.Printf("%s", html)
+
+
+	fmt.Println("it took this long:", elapsed)
+
+	l = int(elapsed/time.Millisecond)
+	fmt.Println("pingSiteOnce returned:", l)
+
+	return l
 }
 
 // list is sorted
