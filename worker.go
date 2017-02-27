@@ -6,12 +6,11 @@ import (
 	"log"
 	"net"
 	"os"
-	// "strings"
-	// "strconv"
+	"strings"
+	"strconv"
 	"net/rpc"
 )
 var (
-	outboundIp string
 	portForWorkerRPC string
 	portForGetSite string
 	portForPingServer string
@@ -55,14 +54,13 @@ func main() {
 
 	// outboundIp = GetOutboundIP()
 
-	fmt.Println("this workers outboundIp is:", outboundIp)
-
 	join()
 
 	fmt.Println("Successfully joined. Ports: Server:", portForWorkerRPC, "PingServer:", portForPingServer, "GetSite:", portForGetSite)
 
-	// TODO listen rpc outboundIp:portForMServerRPC
-	// listen(outboundIp + ":" + portForWorkerRPC)
+	listen(":" + portForWorkerRPC)
+
+
 }
 
 func (p *WorkerServer) PingSite(req MWebsiteReq, resp *LatencyStats) error {
@@ -105,9 +103,19 @@ func join() {
 
 	fmt.Println("dialed server")
 
+	// TODO make more elegant than till space...
 	port, err := bufio.NewReader(conn).ReadString(' ')
 	checkError("Error in join(), bufio.NewReader(conn).ReadString()", err, true)
     fmt.Println("Message from server: ", port)
+
+    portForWorkerRPC = strings.Trim(port, " ")
+    fmt.Println("My portForWorkerRPC is:", portForWorkerRPC)
+
+    portValue, err := strconv.Atoi(portForWorkerRPC)
+    checkError("Error in join(), strconv.Atoi()", err, true)
+
+    portForPingServer = strconv.Itoa(portValue + 1)
+    portForGetSite = strconv.Itoa(portValue + 2)
 
 	// var joinResp int
 	// client, err := rpc.Dial("tcp", serverIpPort)
