@@ -139,6 +139,8 @@ func listenClient() {
 func getWorkers(samples int) (res MRes) {
 	fmt.Println("GetWorkers called with samples:", samples)
 
+	go listenWorkerPing()
+
 	res.Stats = make(map[string]LatencyStats)
 
 	for _, worker := range Workers {
@@ -147,6 +149,33 @@ func getWorkers(samples int) (res MRes) {
 		res.Diff = nil
 	}
 	return
+}
+
+func listenWorkerPing() {
+
+	workerIncoming, err := net.ResolveUDPAddr("udp", workerIncomingIpPort)
+	checkError("Error in listenWorkerPing(), net.ResolveUDPAddr():", err, true)
+
+	receivePingConn, err := net.ListenUDP("udp", workerIncoming)
+	checkError("Error in listenWorkerPing(), net.ListenUDP():", err, true)
+
+	for {
+		buffer := make([]byte, 10)	
+		_, workerIpPort, err := receivePingConn.ReadFromUDP(buffer)
+		checkError("Error in listenWorkerPing(), receivePingConn.ReadFromUDP():", err, true)
+		// don't need an ack, simply return message
+		returnPingConn, err := net.DialUDP("udp", nil, workerIpPort)
+		// should allow error, consider as failed ping
+		checkError("Error in listenWorkerPing(), net.DialUDP():", err, false)
+		
+		if err == nil {
+
+			_, err = returnPingConn.Write(buffer)
+			// should allow error, consider as failed ping
+			checkError("Error in listenWorkerPing(), receivePingConn.Write():", err, false)
+			returnPingConn.Close()
+		}
+	}
 }
 
 func pingServer(w Worker, samples int) (st LatencyStats) {

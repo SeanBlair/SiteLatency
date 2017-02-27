@@ -45,6 +45,11 @@ type MWebsiteReq struct {
 	SamplesPerWorker int    // Number of samples, >= 1
 }
 
+type ServerPing struct {
+	Id int
+	Acked bool
+}
+
 func main() {
 
 	err := ParseArguments()
@@ -70,9 +75,82 @@ func (p *WorkerServer) PingSite(req MWebsiteReq, resp *LatencyStats) error {
 func (p *WorkerServer) PingServer(samples int, resp *LatencyStats) error {
 	fmt.Println("received call to PingServer")
 	// TODO
-	// pingServer(samples)
-	*resp = LatencyStats{7, 7, 7}
+	*resp = pingServer(samples)
+	// *resp = LatencyStats{7, 7, 7}
 	return nil
+}
+
+func pingServer(samples int) (stats LatencyStats) {
+	var pings []ServerPing
+	for i := 0; i < samples; i++ {
+		pings = append(pings, ServerPing{i,false})
+	} 
+	var latencyList []int
+
+	missedAck := false
+	for !missedAck {
+		for _,ping := range pings {
+			if ping.Acked == false {
+				pingServerOnce(ping.Id)
+				// start timer
+				start := time.Now()
+
+				pingResponseAddr, err := net.ResolveUDPAddr("udp", ":" + portForWorkerRPC)
+				checkError("Error in pingServer(), net.ResolveUDPAddr():", err, true)
+
+				responseConn, err := net.ListenUDP("udp", pingResponseAddr)
+				checkError("Error in pingServer(), net.ListenUDP():", err, true)
+				// start timeout
+				responseConn.SetReadDeadline(time.Now().Add(time.Second * 1))
+				// get response
+				buffer := make([]byte, 10)
+				_, _, err = responseConn.ReadFromUDP(buffer)
+				// timed out
+				if err, ok := err.(net.Error); ok && err.Timeout() {
+					responseConn.Close()
+					missedAck = true
+				} else if err != nil {
+					checkError("Error in pingServer(), responseConn.ReadFromUDP():",err, true)
+				} else {
+	
+					if int(buffer[0]) == ping.Id {
+						ping.Acked = true
+						elapsed := time.Since(start)
+						latencyList = append(latencyList, int(elapsed / time.Millisecond))
+					} else {
+						missedAck = true
+					}
+					responseConn.Close()
+				}
+			}
+		}	
+	}
+
+	// set stats
+	sort.Ints(latencyList)
+
+	fmt.Println("latencyList after sorting:", latencyList)
+	min := latencyList[0]
+	max := latencyList[len(latencyList)-1]
+	median := getMedian(latencyList)
+	stats = LatencyStats{min, median, max}
+
+	return
+}
+
+
+func pingServerOnce(pingId int) {
+	pingAddr, err := net.ResolveUDPAddr("udp", ":" + portForWorkerRPC)
+	checkError("Error in pingServerOnce(), net.ResolveUDPAddr():", err, true)
+
+	serverAddr, err := net.ResolveUDPAddr("udp", serverIpPort)
+	checkError("Error in pingServerOnce(), net.ResolveUDPAddr():", err, true)
+
+	conn, err := net.DialUDP("udp", pingAddr, serverAddr)
+	checkError("Error in pingServerOnce(), net.DialUDP():", err, true)
+	_, err = conn.Write([]byte{byte(pingId)})
+	checkError("Error in pingServerOnce(), conn.Write():", err, true)
+	conn.Close()
 }
 
 func pingSite(req MWebsiteReq) (stats LatencyStats) {
