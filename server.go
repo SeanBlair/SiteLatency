@@ -19,18 +19,19 @@ import (
 	"os"
 	"net/rpc"
 	// "strings"
-	"strconv"
+	// "strconv"
 )
 var (
 	workerIncomingIpPort string
 	clientIncomingIpPort string
-	nextWorkerPort int = 3000
+	// nextWorkerPort int = 3000
+	workerRPCPort string = "20000 "
 	Workers []Worker
 )
 
 type Worker struct {
 	Ip string
-	Port int
+	// Port int
 }
 
 
@@ -81,8 +82,9 @@ func main() {
 	}
 	fmt.Println("workerIncomingIpPort:", workerIncomingIpPort, "clientIncomingIpPort:", clientIncomingIpPort)
 
-	go listen(clientIncomingIpPort)
-	listen(workerIncomingIpPort)
+	go listenClient()
+	// listen(workerIncomingIpPort)
+	listenWorkers()
 }
 
 func (p *MServer) MeasureWebsite(mSiteReq MWebsiteReq, mRes *MRes) error {
@@ -95,20 +97,58 @@ func (p *MServer) GetWorkers(workerReq MWorkersReq, wRes *MRes) error {
 	return nil
 }
 
-func (p *MServer) Join(workerIP string, port *int) error {
-	*port = nextWorkerPort
-	Workers = append(Workers, Worker{workerIP, nextWorkerPort})
-	nextWorkerPort += 10
-	fmt.Println(Workers)
-	return nil
+// func (p *MServer) Join(workerIP string, port *int) error {
+// 	*port = nextWorkerPort
+// 	Workers = append(Workers, Worker{workerIP, nextWorkerPort})
+// 	nextWorkerPort += 10
+// 	fmt.Println(Workers)
+// 	return nil
+// }
+
+func listenWorkers() {
+	ln, err := net.Listen("tcp", workerIncomingIpPort)
+	checkError("Error in listenWorkers(), net.Listen():", err, true)
+	for {
+		conn, err := ln.Accept()
+		checkError("Error in listenWorkers(), ln.Accept():", err, true)
+		// go joinWorker(conn)
+		joinWorker(conn)
+	}
+}
+
+func joinWorker(conn net.Conn) {
+	// var buff bytes.Buffer
+	// // expect all messages to be < 10 bytes
+	// buff := make([]byte, 10)
+	// size, err := conn.Read(buff)
+	// checkError("Error in joinWorker(), conn.Read():", err, true)
+	workerIp := conn.RemoteAddr().String()
+	fmt.Println("joining Workers ip:", workerIp)
+	Workers = append(Workers, Worker{workerIp})
+	// send to socket
+    fmt.Fprintf(conn, workerRPCPort)
 }
 
 
-func listen(ipPort string) {
+// ln, err := net.Listen("tcp", ":8080")
+// if err != nil {
+// 	// handle error
+// }
+// for {
+// 	conn, err := ln.Accept()
+// 	if err != nil {
+// 		// handle error
+// 	}
+// 	go handleConnection(conn)
+// }
+
+
+
+func listenClient() {
 	mServer := rpc.NewServer()
 	m := new(MServer)
 	mServer.Register(m)
-	l, err := net.Listen("tcp", ipPort)
+	l, err := net.Listen("tcp", clientIncomingIpPort)
 	if err != nil {
 		panic(err)
 	}
@@ -121,14 +161,34 @@ func listen(ipPort string) {
 	}
 }
 
+
 func getWorkers(samples int) (res MRes) {
 	fmt.Println("GetWorkers called with samples:", samples)
 
-	res = MRes{map[string]LatencyStats{
-		"hardcodedWorkerIp" : LatencyStats{3,2,1},
-		},
-		nil}
+	res.Stats = make(map[string]LatencyStats)
+
+	for _, worker := range Workers {
+		stats := pingServer(worker, samples)
+		res.Stats[worker.Ip] = stats
+		res.Diff = nil
+	}
+
+	// res = MRes{map[string]LatencyStats{
+	// 	"hardcodedWorkerIp" : LatencyStats{3,2,1},
+	// 	},
+	// 	nil}
 		return
+}
+
+func pingServer(w Worker, samples int) (st LatencyStats) {
+	// wIpPort := getWorkerIpPort(w)
+	client, err := rpc.Dial("tcp", w.Ip + ":" + workerRPCPort)
+	checkError("rpc.Dial in pingServer()", err, true)
+	err = client.Call("WorkerServer.PingServer", samples, &st)
+	checkError("client.Call(WorkerServer.PingServer: ", err, true)
+	err = client.Close()
+	checkError("client.Close() in pingServer call: ", err, true)
+	return
 }
 
 func measureWebsite(mSite MWebsiteReq) (res MRes) {
@@ -152,8 +212,8 @@ func measureWebsite(mSite MWebsiteReq) (res MRes) {
 }
 
 func pingSite(w Worker, req MWebsiteReq) (st LatencyStats) {
-	wIpPort := getWorkerIpPort(w)
-	client, err := rpc.Dial("tcp", wIpPort)
+	// wIpPort := getWorkerIpPort(w)
+	client, err := rpc.Dial("tcp", w.Ip + ":" + workerRPCPort)
 	checkError("rpc.Dial in pingSite()", err, true)
 	err = client.Call("WorkerServer.PingSite", req, &st)
 	checkError("client.Call(WorkerServer.PingSite: ", err, true)
@@ -162,10 +222,10 @@ func pingSite(w Worker, req MWebsiteReq) (st LatencyStats) {
 	return
 }
 
-func getWorkerIpPort(w Worker) (s string) {
-	s = w.Ip + ":" + strconv.Itoa(w.Port)
-	return
-}
+// func getWorkerIpPort(w Worker) (s string) {
+// 	s = w.Ip + ":" + strconv.Itoa(w.Port)
+// 	return
+// }
 
 func ParseArguments() (err error) {
 	arguments := os.Args[1:]
