@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"strconv"
 	"net/rpc"
@@ -17,11 +18,11 @@ var (
 	serverIpPort string
 )
 
-//Messages
-const (
-	JOIN = iota
-	// GETWORKERS
-)
+// //Messages
+// const (
+// 	JOIN = iota
+// 	// GETWORKERS
+// )
 
 type MServer int
 
@@ -52,22 +53,20 @@ func main() {
 	}
 	fmt.Println("serverIpPort:", serverIpPort)
 
-	// outboundIp = GetOutboundIP()
-
 	join()
 
 	fmt.Println("Successfully joined. Ports: Server:", portForWorkerRPC, "PingServer:", portForPingServer, "GetSite:", portForGetSite)
 
+	// listen on own ip, specific port so server knows how to access
 	listen(":" + portForWorkerRPC)
-
-
 }
 
 func (p *WorkerServer) PingSite(req MWebsiteReq, resp *LatencyStats) error {
 	fmt.Println("received call to PingSite")
 	// TODO
 	// pingSite(req)
-	*resp = LatencyStats{5,5,5}
+	// *resp = LatencyStats{5,5,5}
+	*resp = pingSite(req)
 	return nil
 }
 
@@ -77,6 +76,48 @@ func (p *WorkerServer) PingServer(samples int, resp *LatencyStats) error {
 	// pingServer(samples)
 	*resp = LatencyStats{7,7,7}
 	return nil
+}
+
+func pingSite(req MWebsiteReq) (stats LatencyStats) {
+	var latencyList []int
+
+	for i := 0; i < req.SamplesPerWorker; i ++ {
+		latency := pingSiteOnce(req.URI)
+		latencyList = append(latencyList, latency)
+	}
+
+	fmt.Println("latencyList before sorting:", latencyList)
+
+	sort.Ints(latencyList)
+
+	fmt.Println("latencyList after sorting:", latencyList)
+	min := latencyList[0]
+	max := latencyList[len(latencyList)-1]
+	median := getMedian(latencyList)
+	stats = LatencyStats{min, median, max}
+	return
+}
+
+func pingSiteOnce(uri string) (l int) {
+	// note in milliseconds, need to round
+	// start timer
+	// http.Get(uri)
+	// stop timer
+	// read timer , round to nearest int
+	return 9
+}
+
+// list is sorted
+func getMedian(list []int) (m int) {
+	length := len(list)
+	var middle int = length/2
+	if (length % 2) == 1 {
+		return list[middle]
+	} else {
+		a := list[middle - 1]
+		b := list[middle]
+		return (a + b)/2
+	}
 }
 
 func listen(ipPort string) {
@@ -103,7 +144,7 @@ func join() {
 
 	fmt.Println("dialed server")
 
-	// TODO make more elegant than till space...
+	// TODO make more elegant than space delimiter...
 	port, err := bufio.NewReader(conn).ReadString(' ')
 	checkError("Error in join(), bufio.NewReader(conn).ReadString()", err, true)
     fmt.Println("Message from server: ", port)
@@ -116,18 +157,6 @@ func join() {
 
     portForPingServer = strconv.Itoa(portValue + 1)
     portForGetSite = strconv.Itoa(portValue + 2)
-
-	// var joinResp int
-	// client, err := rpc.Dial("tcp", serverIpPort)
-	// checkError("rpc.Dial in join()", err, true)
-	// err = client.Call("MServer.Join", outboundIp, &joinResp)
-	// checkError("client.Call(MServer.Join: ", err, true)
-	// err = client.Close()
-	// checkError("client.Close() in join call: ", err, true)
-
-	// portForWorkerRPC = strconv.Itoa(joinResp)
-	// portForPingServer = strconv.Itoa(joinResp + 1)
-	// portForGetSite = strconv.Itoa(joinResp + 2)
 }
 
 func ParseArguments() (err error) {
@@ -140,24 +169,6 @@ func ParseArguments() (err error) {
 		}
 	return
 }
-
-
-// From http://stackoverflow.com/questions/23558425/how-do-i-get-the-local-ip-address-in-go
-// Get preferred outbound ip of this machine
-// func GetOutboundIP() string {
-//     conn, err := net.Dial("udp", "8.8.8.8:80")
-//     if err != nil {
-//         log.Fatal(err)
-//     }
-//     defer conn.Close()
-
-//     localAddr := conn.LocalAddr().String()
-//     idx := strings.LastIndex(localAddr, ":")
-
-//     return localAddr[0:idx]
-
-//     return "localhost"
-// }
 
 // Prints msg + err to console and exits program if exit == true
 func checkError(msg string, err error, exit bool) {
