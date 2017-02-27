@@ -10,29 +10,30 @@ Example:
 go run server.go 127.0.0.1:1111 127.0.0.1:2222
 */
 
-package main 
+package main
 
 import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"net/rpc"
-	"strings"
+	"os"
 	"strconv"
+	"strings"
 )
+
 var (
 	workerIncomingIpPort string
 	clientIncomingIpPort string
+	// for allowing various workers on same machine
 	nextWorkerRPCPort int = 20000
-	Workers []Worker
+	Workers           []Worker
 )
 
 type Worker struct {
-	Ip string
+	Ip   string
 	Port int
 }
-
 
 // A stats struct that summarizes a set of latency measurements to an
 // internet host.
@@ -71,8 +72,6 @@ type MWorkersReq struct {
 
 /////////////// /RPC structs
 
-
-
 func main() {
 
 	err := ParseArguments()
@@ -95,14 +94,6 @@ func (p *MServer) GetWorkers(workerReq MWorkersReq, wRes *MRes) error {
 	return nil
 }
 
-// func (p *MServer) Join(workerIP string, port *int) error {
-// 	*port = nextWorkerPort
-// 	Workers = append(Workers, Worker{workerIP, nextWorkerPort})
-// 	nextWorkerPort += 10
-// 	fmt.Println(Workers)
-// 	return nil
-// }
-
 func listenWorkers() {
 	ln, err := net.Listen("tcp", workerIncomingIpPort)
 	checkError("Error in listenWorkers(), net.Listen():", err, true)
@@ -124,8 +115,8 @@ func joinWorker(conn net.Conn) {
 	Workers = append(Workers, Worker{workerIp, nextWorkerRPCPort})
 	// send to socket
 	// TODO change to not require space delimiter
-    fmt.Fprintf(conn, strconv.Itoa(nextWorkerRPCPort) + " ")
-    nextWorkerRPCPort += 10
+	fmt.Fprintf(conn, strconv.Itoa(nextWorkerRPCPort)+" ")
+	nextWorkerRPCPort += 10
 }
 
 func listenClient() {
@@ -145,7 +136,6 @@ func listenClient() {
 	}
 }
 
-
 func getWorkers(samples int) (res MRes) {
 	fmt.Println("GetWorkers called with samples:", samples)
 
@@ -156,12 +146,7 @@ func getWorkers(samples int) (res MRes) {
 		res.Stats[worker.Ip] = stats
 		res.Diff = nil
 	}
-
-	// res = MRes{map[string]LatencyStats{
-	// 	"hardcodedWorkerIp" : LatencyStats{3,2,1},
-	// 	},
-	// 	nil}
-		return
+	return
 }
 
 func pingServer(w Worker, samples int) (st LatencyStats) {
@@ -179,18 +164,12 @@ func measureWebsite(mSite MWebsiteReq) (res MRes) {
 	fmt.Println("Website to measure:", mSite.URI, "SamplesPerWorker:", mSite.SamplesPerWorker)
 
 	res.Stats = make(map[string]LatencyStats)
-	
 
 	for _, worker := range Workers {
 		stats := pingSite(worker, mSite)
 		res.Stats[worker.Ip] = stats
 		res.Diff = nil
 	}
-
-	// res = MRes{map[string]LatencyStats{
-	// 	"hardcodedWorkerIp" : LatencyStats{1,2,3},
-	// 	},
-	// 	nil}
 
 	return
 }
@@ -216,10 +195,10 @@ func ParseArguments() (err error) {
 	if len(arguments) == 2 {
 		workerIncomingIpPort = arguments[0]
 		clientIncomingIpPort = arguments[1]
-		} else {
-			err = fmt.Errorf("Usage: {go run server.go [worker-incoming ip:port] [client-incoming ip:port]}")
-			return
-		}
+	} else {
+		err = fmt.Errorf("Usage: {go run server.go [worker-incoming ip:port] [client-incoming ip:port]}")
+		return
+	}
 	return
 }
 

@@ -1,25 +1,24 @@
-package main 
+package main
 
 import (
 	"bufio"
 	"fmt"
 	"log"
 	"net"
+	"net/rpc"
 	"os"
 	"sort"
-	"strings"
 	"strconv"
-	"net/rpc"
-	"io/ioutil"
+	"strings"
+	// "io/ioutil"
 	"net/http"
 	"time"
 )
 
 var (
-	portForWorkerRPC string
-	portForGetSite string
+	portForWorkerRPC  string
 	portForPingServer string
-	serverIpPort string
+	serverIpPort      string
 )
 
 // //Messages
@@ -40,14 +39,11 @@ type LatencyStats struct {
 	Max    int // max measured latency in milliseconds to host
 }
 
-
 // Request that client sends in RPC call to MServer.MeasureWebsite
 type MWebsiteReq struct {
 	URI              string // URI of the website to measure
 	SamplesPerWorker int    // Number of samples, >= 1
 }
-
-
 
 func main() {
 
@@ -59,7 +55,7 @@ func main() {
 
 	join()
 
-	fmt.Println("Successfully joined. Ports: Server:", portForWorkerRPC, "PingServer:", portForPingServer, "GetSite:", portForGetSite)
+	fmt.Println("Successfully joined. Ports: Server:", portForWorkerRPC, "PingServer:", portForPingServer)
 
 	// listen on own ip, specific port so server knows how to access
 	listen(":" + portForWorkerRPC)
@@ -67,9 +63,6 @@ func main() {
 
 func (p *WorkerServer) PingSite(req MWebsiteReq, resp *LatencyStats) error {
 	fmt.Println("received call to PingSite")
-	// TODO
-	// pingSite(req)
-	// *resp = LatencyStats{5,5,5}
 	*resp = pingSite(req)
 	return nil
 }
@@ -78,14 +71,14 @@ func (p *WorkerServer) PingServer(samples int, resp *LatencyStats) error {
 	fmt.Println("received call to PingServer")
 	// TODO
 	// pingServer(samples)
-	*resp = LatencyStats{7,7,7}
+	*resp = LatencyStats{7, 7, 7}
 	return nil
 }
 
 func pingSite(req MWebsiteReq) (stats LatencyStats) {
 	var latencyList []int
 
-	for i := 0; i < req.SamplesPerWorker; i ++ {
+	for i := 0; i < req.SamplesPerWorker; i++ {
 		latency := pingSiteOnce(req.URI)
 		latencyList = append(latencyList, latency)
 	}
@@ -102,24 +95,19 @@ func pingSite(req MWebsiteReq) (stats LatencyStats) {
 	return
 }
 
-
 func pingSiteOnce(uri string) (l int) {
 	start := time.Now()
-	res, err := http.Get(uri)
+	// res, err := http.Get(uri)
+	_, err := http.Get(uri)
 	elapsed := time.Since(start)
-	// TODO
-	// this is not required except for figuring out diff, only once...
+
 	checkError("Error in pingSiteOnce(), http.Get():", err, true)
-	html, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-	checkError("Error in pingSiteOnce(), ioutil.ReadAll():", err, true)
-	fmt.Printf("%s", html)
+	// html, err := ioutil.ReadAll(res.Body)
+	// res.Body.Close()
+	// checkError("Error in pingSiteOnce(), ioutil.ReadAll():", err, true)
+	// fmt.Printf("%s", html)
 
-
-	fmt.Println("it took this long:", elapsed)
-
-	l = int(elapsed/time.Millisecond)
-	fmt.Println("pingSiteOnce returned:", l)
+	l = int(elapsed / time.Millisecond)
 
 	return l
 }
@@ -127,13 +115,13 @@ func pingSiteOnce(uri string) (l int) {
 // list is sorted
 func getMedian(list []int) (m int) {
 	length := len(list)
-	var middle int = length/2
+	var middle int = length / 2
 	if (length % 2) == 1 {
 		return list[middle]
 	} else {
-		a := list[middle - 1]
+		a := list[middle-1]
 		b := list[middle]
-		return (a + b)/2
+		return (a + b) / 2
 	}
 }
 
@@ -164,26 +152,25 @@ func join() {
 	// TODO make more elegant than space delimiter...
 	port, err := bufio.NewReader(conn).ReadString(' ')
 	checkError("Error in join(), bufio.NewReader(conn).ReadString()", err, true)
-    fmt.Println("Message from server: ", port)
+	fmt.Println("Message from server: ", port)
 
-    portForWorkerRPC = strings.Trim(port, " ")
-    fmt.Println("My portForWorkerRPC is:", portForWorkerRPC)
+	portForWorkerRPC = strings.Trim(port, " ")
+	fmt.Println("My portForWorkerRPC is:", portForWorkerRPC)
 
-    portValue, err := strconv.Atoi(portForWorkerRPC)
-    checkError("Error in join(), strconv.Atoi()", err, true)
+	portValue, err := strconv.Atoi(portForWorkerRPC)
+	checkError("Error in join(), strconv.Atoi()", err, true)
 
-    portForPingServer = strconv.Itoa(portValue + 1)
-    portForGetSite = strconv.Itoa(portValue + 2)
+	portForPingServer = strconv.Itoa(portValue + 1)
 }
 
 func ParseArguments() (err error) {
 	arguments := os.Args[1:]
 	if len(arguments) == 1 {
 		serverIpPort = arguments[0]
-		} else {
-			err = fmt.Errorf("Usage: {go run server.go [server ip:port]}")
-			return
-		}
+	} else {
+		err = fmt.Errorf("Usage: {go run server.go [server ip:port]}")
+		return
+	}
 	return
 }
 
