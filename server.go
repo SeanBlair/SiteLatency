@@ -68,6 +68,16 @@ type MWorkersReq struct {
 	SamplesPerWorker int // Number of samples, >= 1
 }
 
+type LatencyAndHash struct {
+	Stats LatencyStats
+	SiteHash [16]byte
+}
+
+type WorkerIpAndSiteHash struct {
+	Ip string
+	Hash [16]byte
+}
+
 /////////////// /RPC structs
 
 func main() {
@@ -200,21 +210,36 @@ func measureWebsite(mSite MWebsiteReq) (res MRes) {
 	fmt.Println("Website to measure:", mSite.URI, "SamplesPerWorker:", mSite.SamplesPerWorker)
 
 	res.Stats = make(map[string]LatencyStats)
+	res.Diff = make(map[string]map[string]bool)
+
+	var workerHashes []WorkerIpAndSiteHash
 
 	for _, worker := range Workers {
-		stats := pingSite(worker, mSite)
-		res.Stats[worker.Ip] = stats
-		res.Diff = nil
+		latAndHash := pingSite(worker, mSite)
+		res.Stats[worker.Ip] = latAndHash.Stats
+		workerHashes = append(workerHashes, WorkerIpAndSiteHash{worker.Ip, latAndHash.SiteHash})
+	}
+
+	if len(workerHashes) > 1 {
+		for x, workerX := range workerHashes {
+			var workerXMap = make(map[string]bool)
+			for y, workerY := range workerHashes {
+				if x != y {
+					workerXMap[workerY.Ip] = (workerX.Hash != workerY.Hash)
+				}
+			}
+			res.Diff[workerX.Ip] = workerXMap
+		}
 	}
 
 	return
 }
 
-func pingSite(w Worker, req MWebsiteReq) (st LatencyStats) {
+func pingSite(w Worker, req MWebsiteReq) (latAndHash LatencyAndHash) {
 	wIpPort := getWorkerIpPort(w)
 	client, err := rpc.Dial("tcp", wIpPort)
 	checkError("rpc.Dial in pingSite()", err, true)
-	err = client.Call("WorkerServer.PingSite", req, &st)
+	err = client.Call("WorkerServer.PingSite", req, &latAndHash)
 	checkError("client.Call(WorkerServer.PingSite: ", err, true)
 	err = client.Close()
 	checkError("client.Close() in pingSite call: ", err, true)

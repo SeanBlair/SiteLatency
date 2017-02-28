@@ -8,11 +8,11 @@ import (
 	"net/rpc"
 	"os"
 	"sort"
-	// "strconv"
 	"strings"
-	// "io/ioutil"
+	"io/ioutil"
 	"net/http"
 	"time"
+	"crypto/md5"
 )
 
 var (
@@ -38,6 +38,11 @@ type MWebsiteReq struct {
 	SamplesPerWorker int    // Number of samples, >= 1
 }
 
+type LatencyAndHash struct {
+	Stats LatencyStats
+	SiteHash [16]byte
+}
+
 type ServerPing struct {
 	Id    int
 	Acked bool
@@ -59,7 +64,7 @@ func main() {
 	listen(":" + portForWorkerRPC)
 }
 
-func (p *WorkerServer) PingSite(req MWebsiteReq, resp *LatencyStats) error {
+func (p *WorkerServer) PingSite(req MWebsiteReq, resp *LatencyAndHash) error {
 	fmt.Println("received call to PingSite")
 	*resp = pingSite(req)
 	return nil
@@ -193,7 +198,7 @@ func pingServerOnce(pingId int) {
 	conn.Close()
 }
 
-func pingSite(req MWebsiteReq) (stats LatencyStats) {
+func pingSite(req MWebsiteReq) (statsNHash LatencyAndHash) {
 	var latencyList []int
 
 	for i := 0; i < req.SamplesPerWorker; i++ {
@@ -209,8 +214,20 @@ func pingSite(req MWebsiteReq) (stats LatencyStats) {
 	min := latencyList[0]
 	max := latencyList[len(latencyList)-1]
 	median := getMedian(latencyList)
-	stats = LatencyStats{min, median, max}
+	statsNHash.Stats = LatencyStats{min, median, max}
+	statsNHash.SiteHash = getHash(req.URI)
 	return
+}
+
+func getHash(uri string) (h [16]byte) {
+	res, err := http.Get(uri)
+	checkError("Error in getHash(), http.Get():", err, true)
+	html, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	checkError("Error in getHash(), ioutil.ReadAll()", err, true)
+	data := []byte(html)
+	h = md5.Sum(data)
+	return 
 }
 
 func pingSiteOnce(uri string) (l int) {
