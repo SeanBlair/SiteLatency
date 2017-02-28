@@ -25,13 +25,12 @@ import (
 var (
 	workerIncomingIpPort string
 	clientIncomingIpPort string
-	workerRPCPort int = 20000
-	Workers           []Worker
+	workerRPCPort        int = 20000
+	Workers              []Worker
 )
 
 type Worker struct {
-	Ip   string
-	// Port int
+	Ip string
 }
 
 // A stats struct that summarizes a set of latency measurements to an
@@ -99,7 +98,6 @@ func listenWorkers() {
 	for {
 		conn, err := ln.Accept()
 		checkError("Error in listenWorkers(), ln.Accept():", err, true)
-		// go joinWorker(conn)
 		joinWorker(conn)
 		fmt.Println("Worker joined. Workers:", Workers)
 	}
@@ -111,12 +109,10 @@ func joinWorker(conn net.Conn) {
 
 	workerIp := workerIpPort[:strings.Index(workerIpPort, ":")]
 
-	// Workers = append(Workers, Worker{workerIp, workerRPCPort})
 	Workers = append(Workers, Worker{workerIp})
 	// send to socket
 	// TODO change to not require space delimiter
 	fmt.Fprintf(conn, strconv.Itoa(workerRPCPort)+" ")
-	// nextWorkerRPCPort += 10
 }
 
 func listenClient() {
@@ -139,8 +135,6 @@ func listenClient() {
 func getWorkers(samples int) (res MRes) {
 	fmt.Println("GetWorkers called with samples:", samples)
 
-	// go listenWorkerPing()
-
 	res.Stats = make(map[string]LatencyStats)
 
 	for _, worker := range Workers {
@@ -162,7 +156,7 @@ func listenWorkerPing() {
 	checkError("Error in listenWorkerPing(), net.ListenUDP():", err, true)
 
 	for {
-		buffer := make([]byte, 10)	
+		buffer := make([]byte, 10)
 		_, workerIpPort, err := receivePingConn.ReadFromUDP(buffer)
 		checkError("Error in listenWorkerPing(), receivePingConn.ReadFromUDP():", err, true)
 
@@ -173,8 +167,6 @@ func listenWorkerPing() {
 		// should allow error, consider as failed ping
 		checkError("Error in listenWorkerPing(), net.DialUDP():", err, false)
 
-
-		
 		if err == nil {
 
 			_, err = returnPingConn.Write(buffer)
@@ -230,7 +222,6 @@ func pingSite(w Worker, req MWebsiteReq) (st LatencyStats) {
 }
 
 func getWorkerIpPort(w Worker) (s string) {
-	// s = w.Ip + ":" + strconv.Itoa(w.Port)
 	s = w.Ip + ":" + strconv.Itoa(workerRPCPort)
 	return
 }

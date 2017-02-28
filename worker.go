@@ -16,16 +16,9 @@ import (
 )
 
 var (
-	portForWorkerRPC  string
-	// portForPingServer string
-	serverIpPort      string
+	portForWorkerRPC string
+	serverIpPort     string
 )
-
-// //Messages
-// const (
-// 	JOIN = iota
-// 	// GETWORKERS
-// )
 
 type MServer int
 
@@ -46,7 +39,7 @@ type MWebsiteReq struct {
 }
 
 type ServerPing struct {
-	Id int
+	Id    int
 	Acked bool
 }
 
@@ -74,23 +67,21 @@ func (p *WorkerServer) PingSite(req MWebsiteReq, resp *LatencyStats) error {
 
 func (p *WorkerServer) PingServer(samples int, resp *LatencyStats) error {
 	fmt.Println("received call to PingServer")
-	// TODO
 	*resp = pingServer(samples)
-	// *resp = LatencyStats{7, 7, 7}
 	return nil
 }
 
 func pingServer(samples int) (stats LatencyStats) {
 	var pings []ServerPing
 	for i := 1; i <= samples; i++ {
-		pings = append(pings, ServerPing{i,false})
-	} 
+		pings = append(pings, ServerPing{i, false})
+	}
 
 	fmt.Println("samples is:", samples, "and initialized pings:", pings)
 	var latencyList []int
 
 	missedAck := isMissedAck(pings)
-	
+
 	for missedAck {
 		for index, ping := range pings {
 			if ping.Acked == false {
@@ -99,7 +90,7 @@ func pingServer(samples int) (stats LatencyStats) {
 				// start timer
 				start := time.Now()
 
-				pingResponseAddr, err := net.ResolveUDPAddr("udp", ":" + portForWorkerRPC)
+				pingResponseAddr, err := net.ResolveUDPAddr("udp", ":"+portForWorkerRPC)
 				checkError("Error in pingServer(), net.ResolveUDPAddr():", err, true)
 
 				responseConn, err := net.ListenUDP("udp", pingResponseAddr)
@@ -114,14 +105,14 @@ func pingServer(samples int) (stats LatencyStats) {
 					fmt.Println("detected a timeout for pingId:", ping.Id)
 					responseConn.Close()
 				} else if err != nil {
-					checkError("Error in pingServer(), responseConn.ReadFromUDP():",err, true)
+					checkError("Error in pingServer(), responseConn.ReadFromUDP():", err, true)
 				} else {
 					fmt.Println("received ack pingid:", int(buffer[0]))
 					if int(buffer[0]) == ping.Id {
 						pings[index].Acked = true
 						elapsed := time.Since(start)
-						latencyList = append(latencyList, int(elapsed / time.Millisecond))
-						
+						latencyList = append(latencyList, int(elapsed/time.Millisecond))
+
 						fmt.Println("After correct ack received, pings:", pings, "and latencyList:", latencyList)
 					} else {
 						fmt.Println("detected a incorrect ack id:", int(buffer[0]), "and pings:", pings)
@@ -130,16 +121,14 @@ func pingServer(samples int) (stats LatencyStats) {
 				}
 			}
 		}
-		missedAck = isMissedAck(pings)	
+		missedAck = isMissedAck(pings)
 	}
 
 	missedDoneAck := true
 	for missedDoneAck {
 		pingServerOnce(0)
 
-		// start := time.Now()
-
-		pingResponseAddr, err := net.ResolveUDPAddr("udp", ":" + portForWorkerRPC)
+		pingResponseAddr, err := net.ResolveUDPAddr("udp", ":"+portForWorkerRPC)
 		checkError("Error in pingServer(), net.ResolveUDPAddr():", err, true)
 
 		responseConn, err := net.ListenUDP("udp", pingResponseAddr)
@@ -151,25 +140,20 @@ func pingServer(samples int) (stats LatencyStats) {
 		_, _, err = responseConn.ReadFromUDP(buffer)
 		// timed out
 		if err, ok := err.(net.Error); ok && err.Timeout() {
-			fmt.Println("detected a timeout for pingId:", -1)
+			fmt.Println("detected a timeout for pingId:", int(buffer[0]))
 			responseConn.Close()
 		} else if err != nil {
-			checkError("Error in pingServer(), responseConn.ReadFromUDP():",err, true)
+			checkError("Error in pingServer(), responseConn.ReadFromUDP():", err, true)
 		} else {
 			fmt.Println("received ack pingid:", int(buffer[0]))
 			if int(buffer[0]) == 0 {
 				missedDoneAck = false
-						// pings[index].Acked = true
-						// elapsed := time.Since(start)
-						// latencyList = append(latencyList, int(elapsed / time.Millisecond))
-						
-						// fmt.Println("After correct ack received, pings:", pings, "and latencyList:", latencyList)
 			} else {
 				fmt.Println("detected a incorrect ack id:", int(buffer[0]), "and pings:", pings)
 			}
 			responseConn.Close()
 		}
-	} 
+	}
 
 	// set stats
 	sort.Ints(latencyList)
@@ -193,9 +177,8 @@ func isMissedAck(serverPings []ServerPing) (b bool) {
 	return
 }
 
-
 func pingServerOnce(pingId int) {
-	pingAddr, err := net.ResolveUDPAddr("udp", ":" + portForWorkerRPC)
+	pingAddr, err := net.ResolveUDPAddr("udp", ":"+portForWorkerRPC)
 	checkError("Error in pingServerOnce(), net.ResolveUDPAddr():", err, true)
 
 	serverAddr, err := net.ResolveUDPAddr("udp", serverIpPort)
@@ -291,11 +274,6 @@ func join() {
 
 	portForWorkerRPC = strings.Trim(port, " ")
 	fmt.Println("My portForWorkerRPC is:", portForWorkerRPC)
-
-	// portValue, err := strconv.Atoi(portForWorkerRPC)
-	// checkError("Error in join(), strconv.Atoi()", err, true)
-
-	// portForPingServer = strconv.Itoa(portValue + 1)
 }
 
 func ParseArguments() (err error) {
