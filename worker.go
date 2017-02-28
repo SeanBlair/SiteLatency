@@ -8,7 +8,7 @@ import (
 	"net/rpc"
 	"os"
 	"sort"
-	"strconv"
+	// "strconv"
 	"strings"
 	// "io/ioutil"
 	"net/http"
@@ -17,7 +17,7 @@ import (
 
 var (
 	portForWorkerRPC  string
-	portForPingServer string
+	// portForPingServer string
 	serverIpPort      string
 )
 
@@ -60,7 +60,7 @@ func main() {
 
 	join()
 
-	fmt.Println("Successfully joined. Ports: Server:", portForWorkerRPC, "PingServer:", portForPingServer)
+	fmt.Println("Successfully joined. Server:", serverIpPort, "RPCport:", portForWorkerRPC)
 
 	// listen on own ip, specific port so server knows how to access
 	listen(":" + portForWorkerRPC)
@@ -205,6 +205,8 @@ func pingServerOnce(pingId int) {
 	checkError("Error in pingServerOnce(), net.DialUDP():", err, true)
 	_, err = conn.Write([]byte{byte(pingId)})
 	checkError("Error in pingServerOnce(), conn.Write():", err, true)
+	fmt.Println("Pinged server from address:", pingAddr, "to address:", serverAddr)
+
 	conn.Close()
 }
 
@@ -290,10 +292,10 @@ func join() {
 	portForWorkerRPC = strings.Trim(port, " ")
 	fmt.Println("My portForWorkerRPC is:", portForWorkerRPC)
 
-	portValue, err := strconv.Atoi(portForWorkerRPC)
-	checkError("Error in join(), strconv.Atoi()", err, true)
+	// portValue, err := strconv.Atoi(portForWorkerRPC)
+	// checkError("Error in join(), strconv.Atoi()", err, true)
 
-	portForPingServer = strconv.Itoa(portValue + 1)
+	// portForPingServer = strconv.Itoa(portValue + 1)
 }
 
 func ParseArguments() (err error) {

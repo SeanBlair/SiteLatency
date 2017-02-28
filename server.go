@@ -25,14 +25,13 @@ import (
 var (
 	workerIncomingIpPort string
 	clientIncomingIpPort string
-	// for allowing various workers on same machine
-	nextWorkerRPCPort int = 20000
+	workerRPCPort int = 20000
 	Workers           []Worker
 )
 
 type Worker struct {
 	Ip   string
-	Port int
+	// Port int
 }
 
 // A stats struct that summarizes a set of latency measurements to an
@@ -112,11 +111,12 @@ func joinWorker(conn net.Conn) {
 
 	workerIp := workerIpPort[:strings.Index(workerIpPort, ":")]
 
-	Workers = append(Workers, Worker{workerIp, nextWorkerRPCPort})
+	// Workers = append(Workers, Worker{workerIp, workerRPCPort})
+	Workers = append(Workers, Worker{workerIp})
 	// send to socket
 	// TODO change to not require space delimiter
-	fmt.Fprintf(conn, strconv.Itoa(nextWorkerRPCPort)+" ")
-	nextWorkerRPCPort += 10
+	fmt.Fprintf(conn, strconv.Itoa(workerRPCPort)+" ")
+	// nextWorkerRPCPort += 10
 }
 
 func listenClient() {
@@ -139,14 +139,16 @@ func listenClient() {
 func getWorkers(samples int) (res MRes) {
 	fmt.Println("GetWorkers called with samples:", samples)
 
-	go listenWorkerPing()
+	// go listenWorkerPing()
 
 	res.Stats = make(map[string]LatencyStats)
 
 	for _, worker := range Workers {
+		go listenWorkerPing()
 		stats := pingServer(worker, samples)
 		res.Stats[worker.Ip] = stats
 		res.Diff = nil
+		fmt.Println("Received stats:", stats, "from worker:", worker)
 	}
 	return
 }
@@ -164,10 +166,14 @@ func listenWorkerPing() {
 		_, workerIpPort, err := receivePingConn.ReadFromUDP(buffer)
 		checkError("Error in listenWorkerPing(), receivePingConn.ReadFromUDP():", err, true)
 
+		fmt.Println("Received ping:", int(buffer[0]), " from:", workerIpPort)
+
 		// don't need an ack, simply return message
 		returnPingConn, err := net.DialUDP("udp", nil, workerIpPort)
 		// should allow error, consider as failed ping
 		checkError("Error in listenWorkerPing(), net.DialUDP():", err, false)
+
+
 		
 		if err == nil {
 
@@ -175,6 +181,7 @@ func listenWorkerPing() {
 			// should allow error, consider as failed ping
 			checkError("Error in listenWorkerPing(), receivePingConn.Write():", err, false)
 			returnPingConn.Close()
+			fmt.Println("Returned ping:", int(buffer[0]), "to worker:", workerIpPort)
 
 			// finished pinging...
 			if buffer[0] == 0 {
@@ -223,7 +230,8 @@ func pingSite(w Worker, req MWebsiteReq) (st LatencyStats) {
 }
 
 func getWorkerIpPort(w Worker) (s string) {
-	s = w.Ip + ":" + strconv.Itoa(w.Port)
+	// s = w.Ip + ":" + strconv.Itoa(w.Port)
+	s = w.Ip + ":" + strconv.Itoa(workerRPCPort)
 	return
 }
 
