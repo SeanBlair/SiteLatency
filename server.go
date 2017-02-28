@@ -163,6 +163,7 @@ func listenWorkerPing() {
 		buffer := make([]byte, 10)	
 		_, workerIpPort, err := receivePingConn.ReadFromUDP(buffer)
 		checkError("Error in listenWorkerPing(), receivePingConn.ReadFromUDP():", err, true)
+
 		// don't need an ack, simply return message
 		returnPingConn, err := net.DialUDP("udp", nil, workerIpPort)
 		// should allow error, consider as failed ping
@@ -174,8 +175,15 @@ func listenWorkerPing() {
 			// should allow error, consider as failed ping
 			checkError("Error in listenWorkerPing(), receivePingConn.Write():", err, false)
 			returnPingConn.Close()
+
+			// finished pinging...
+			if buffer[0] == 0 {
+				break
+			}
 		}
 	}
+
+	receivePingConn.Close()
 }
 
 func pingServer(w Worker, samples int) (st LatencyStats) {
