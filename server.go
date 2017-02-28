@@ -69,12 +69,12 @@ type MWorkersReq struct {
 }
 
 type LatencyAndHash struct {
-	Stats LatencyStats
+	Stats    LatencyStats
 	SiteHash [16]byte
 }
 
 type WorkerIpAndSiteHash struct {
-	Ip string
+	Ip   string
 	Hash [16]byte
 }
 

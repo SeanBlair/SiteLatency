@@ -2,17 +2,17 @@ package main
 
 import (
 	"bufio"
+	"crypto/md5"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"net/rpc"
 	"os"
 	"sort"
 	"strings"
-	"io/ioutil"
-	"net/http"
 	"time"
-	"crypto/md5"
 )
 
 var (
@@ -39,7 +39,7 @@ type MWebsiteReq struct {
 }
 
 type LatencyAndHash struct {
-	Stats LatencyStats
+	Stats    LatencyStats
 	SiteHash [16]byte
 }
 
@@ -227,7 +227,7 @@ func getHash(uri string) (h [16]byte) {
 	checkError("Error in getHash(), ioutil.ReadAll()", err, true)
 	data := []byte(html)
 	h = md5.Sum(data)
-	return 
+	return
 }
 
 func pingSiteOnce(uri string) (l int) {
