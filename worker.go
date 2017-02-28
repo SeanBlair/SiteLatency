@@ -85,13 +85,16 @@ func pingServer(samples int) (stats LatencyStats) {
 	for i := 0; i < samples; i++ {
 		pings = append(pings, ServerPing{i,false})
 	} 
+
+	fmt.Println("samples is:", samples, "and initialized pings:", pings)
 	var latencyList []int
 
-	missedAck := false
-	for !missedAck {
-		for _,ping := range pings {
+	missedAck := isMissedAck(pings)
+	for missedAck {
+		for index, ping := range pings {
 			if ping.Acked == false {
 				pingServerOnce(ping.Id)
+				fmt.Println("pinged server with pingId:", ping.Id)
 				// start timer
 				start := time.Now()
 
@@ -107,23 +110,26 @@ func pingServer(samples int) (stats LatencyStats) {
 				_, _, err = responseConn.ReadFromUDP(buffer)
 				// timed out
 				if err, ok := err.(net.Error); ok && err.Timeout() {
+					fmt.Println("detected a timeout for pingId:", ping.Id)
 					responseConn.Close()
-					missedAck = true
 				} else if err != nil {
 					checkError("Error in pingServer(), responseConn.ReadFromUDP():",err, true)
 				} else {
-	
+					fmt.Println("received ack pingid:", int(buffer[0]))
 					if int(buffer[0]) == ping.Id {
-						ping.Acked = true
+						pings[index].Acked = true
 						elapsed := time.Since(start)
 						latencyList = append(latencyList, int(elapsed / time.Millisecond))
+						
+						fmt.Println("After correct ack received, pings:", pings, "and latencyList:", latencyList)
 					} else {
-						missedAck = true
+						fmt.Println("detected a incorrect ack id:", int(buffer[0]), "and pings:", pings)
 					}
 					responseConn.Close()
 				}
 			}
-		}	
+		}
+		missedAck = isMissedAck(pings)	
 	}
 
 	// set stats
@@ -135,6 +141,16 @@ func pingServer(samples int) (stats LatencyStats) {
 	median := getMedian(latencyList)
 	stats = LatencyStats{min, median, max}
 
+	return
+}
+
+func isMissedAck(serverPings []ServerPing) (b bool) {
+	b = false
+	for _, ping := range serverPings {
+		if !ping.Acked {
+			return true
+		}
+	}
 	return
 }
 
