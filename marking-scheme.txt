@@ -1,0 +1,15 @@
+Total mark: [100/100]
+---------------------------------------------------
+
+* The MeasureWebsite RPC works as expected  [60/100]
+
+
+
+* The GetWorkers RPC works as expected      [40/100]
+
+
+
+
+Extra credit
+------------
+
