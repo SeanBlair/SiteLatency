@@ -1,15 +1,30 @@
-Total mark: [100/100]
+Total mark: [76/100]
 ---------------------------------------------------
 
-* The MeasureWebsite RPC works as expected  [60/100]
+Makes exactly NUMSAMPLE requests to webserver with a single worker:                    [10/10]
 
+Makes exactly 2 x NUMSAMPLE requests to webserver with a two workers:                  [10/10]
 
+Two workers measure the same min latency 1 and the same max latency 2:                 [20/20]
 
-* The GetWorkers RPC works as expected      [40/100]
+One worker always measures latency 1 while the other worker always measures latency 2: [20/20]
 
+Both workers measure the same latency:                                                 [20/20]
 
+3 workers return latency data when get workers is called:                              [5/5]
 
+The latency measurements of 3 workers is correct:                                      [15/15]
 
-Extra credit
+---------------------------------------------------
+
+Total mark before penalties:                                                           [100/100]
+
+Extra credit: (Not included in above total)
 ------------
+        EC1: YES
+
+Comments/Penalties
+------------------
+        20% late penalty
+        5% penalty - Student hits webserver more than NUMSAMPLES times
 
